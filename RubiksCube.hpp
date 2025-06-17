@@ -5,6 +5,13 @@ enum Face { U, D, L, R, F, B };
 
 enum Color { YELLOW, WHITE, BLUE, GREEN, RED, ORANGE };
 
+struct EdgeRef {
+	Face face;
+	int row;
+	int col;
+	bool reverse;
+};
+
 class RubiksCube {
 	public:
 		RubiksCube();
