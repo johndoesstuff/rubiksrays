@@ -3,8 +3,24 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include "SDF.hpp"
+#include <csignal>
+#include <omp.h>
+#include <chrono>
+
+void handle_exit(int) {
+	std::cout << "\033[?25h" << std::flush;
+	std::exit(0);
+}
 
 int main() {
+	std::signal(SIGINT, handle_exit);
+	std::signal(SIGTERM, handle_exit);
+
+	using Clock = std::chrono::high_resolution_clock;
+	auto last_time = Clock::now();
+	int fps = 0;
+
+
 	auto screen = ftxui::Screen::Create(
 		ftxui::Dimension::Full(),
 		ftxui::Dimension::Full()
@@ -55,11 +71,11 @@ int main() {
 		[](const glm::vec3& pos) {
 			return sdf_bounded_plane(pos, glm::vec3(0.0, -1.0, 0.0), glm::vec3(0.0, -1.0, 0.0), glm::vec2(1.0, 1.0));
 		},
-		ftxui::Color::Yellow,
+		ftxui::Color::YellowLight,
 		plane_id++,
 	});
 
-	int max_steps = 1000;
+	int max_steps = 20;
 	float yaw_angle = 0.0f;
 	float pitch_angle = 0.0f;
 
@@ -71,6 +87,7 @@ int main() {
 
 		camera = pitch_rot * yaw_rot * glm::vec4(camera, 0.0);
 
+		#pragma omp parallel for
 		for (int y = 0; y < height; y++) {
 			for (int x = 0; x < width; x++) {
 				glm::vec3 position = camera;
@@ -100,8 +117,24 @@ int main() {
 				}
 			}
 		}
-		std::cout << "\033[H\033[J";
-		screen.Print();
+
+		std::string fps_text = "FPS: " + std::to_string(fps);
+		for (size_t i = 0; i < fps_text.size() && i < static_cast<size_t>(width); ++i) {
+			auto& pixel = screen.PixelAt(i, 0); // top-left
+			pixel.character = fps_text[i];
+			pixel.foreground_color = ftxui::Color::White;
+			pixel.bold = true;
+		}
+
+		std::cout << "\033[?25l";
+		std::cout << "\033[H";
+		std::cout << screen.ToString();
+		std::cout.flush();
+
+		auto current_time = Clock::now();
+		std::chrono::duration<double> delta = current_time - last_time;
+		last_time = current_time;
+		fps = static_cast<int>(1.0 / delta.count());
 
 		yaw_angle += 0.03f;
 		pitch_angle += 0.01f;

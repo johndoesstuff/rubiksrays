@@ -26,7 +26,7 @@ double sdf_bounded_plane(const glm::vec3& pos, const glm::vec3& center, const gl
 }
 
 HitResult sdf_scene(const glm::vec3& pos, const std::vector<SDFObject>& objects) {
-	double epsilon = 1e-2;
+	double epsilon = 0.01;
 	double min_dist = 1e12;
 	int hit_id = -1;
 	bool hit = false;
