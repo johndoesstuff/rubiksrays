@@ -7,8 +7,8 @@ enum Color { YELLOW, WHITE, BLUE, GREEN, RED, ORANGE };
 
 struct EdgeRef {
 	Face face;
-	int row;
-	int col;
+	int row;	//if -1 use col
+	int col;	//if -1 use row
 	bool reverse;
 };
 

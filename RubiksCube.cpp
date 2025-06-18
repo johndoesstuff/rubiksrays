@@ -10,6 +10,18 @@ RubiksCube::RubiksCube() {
 	}
 }
 
+std::unordered_map<Face, std::array<EdgeRef, 4>> edgeMap = {
+	{ F, {{		
+		{U, 2, -1, false},
+		{R, -1, 0, false},
+		{D, 0, -1, true},
+		{L, -1, 2, true},
+	}}},
+	{ R, {{
+		{}
+	}}}
+};
+
 void RubiksCube::rotate(Face face, bool clockwise) {
 	rotateFaceMatrix(faces[face], clockwise);
 	rotateAdjEdges(face, clockwise);
@@ -27,4 +39,8 @@ void RubiksCube::rotateFaceMatrix(Color face[3][3], bool clockwise) {
 			face[i][j] = clockwise ? faceBuffer[2-j][i] : faceBuffer[j][2-i];
 		}
 	}
+}
+
+void RubiksCube::rotateAdjEdges(Face face, bool clockwise) {
+	
 }

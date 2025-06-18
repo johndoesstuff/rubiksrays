@@ -10,7 +10,9 @@ FetchContent_Declare(ftxui
 
 FetchContent_MakeAvailable(ftxui)
 
-add_executable(RubiksRays main.cpp)
+find_package(glm REQUIRED)
+
+add_executable(RubiksRays main.cpp SDF.cpp)
 target_link_libraries(RubiksRays
 	PRIVATE ftxui::screen
 	PRIVATE ftxui::dom
