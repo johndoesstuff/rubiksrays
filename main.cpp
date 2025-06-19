@@ -11,6 +11,7 @@
 #include <poll.h>
 #include <chrono>
 #include <thread>
+#include "Transform.hpp"
 
 void set_raw_mode(bool enable) {
 	static struct termios oldt;
@@ -308,6 +309,9 @@ int main() {
 	float pitch_vel = 0.0f;
 	float yaw_vel = 0.0f;
 
+	Transform current_transform;
+	current_transform.progress = 1.0f;
+
 	while (true) {
 		char key = poll_keypress();
 		if (key == 'h') yaw_vel += 0.05;
@@ -320,63 +324,100 @@ int main() {
 			yaw = 0.0f;
 			pitch = 0.0f;
 		}*/
+
+		bool cancel_transform = false;
+		if (key == 'u') cancel_transform = true;
+		if (key == 'd') cancel_transform = true;
+		if (key == 'r') cancel_transform = true;
+		if (key == 'l') cancel_transform = true;
+		if (key == 'f') cancel_transform = true;
+		if (key == 'b') cancel_transform = true;
+
+		double temp = current_transform.progress;
+		current_transform.progress = current_transform.progress * 0.9 + 0.1;
+		double delta_trans = current_transform.progress - temp;
+		if (cancel_transform) {
+			delta_trans += 1.0 - current_transform.progress;
+			current_transform.progress = 1.0f;
+		}
+
+		for ( auto& ref : current_transform.affected ) {
+			CubeUnit& cube_unit = ref.get();
+
+			glm::mat4 rot = glm::rotate(glm::mat4(1.0f), (float)(current_transform.direction * delta_trans * glm::half_pi<float>()), current_transform.axis);
+			cube_unit.position = glm::vec3(rot * glm::vec4(cube_unit.position, 1.0f));
+			cube_unit.rotation = rot * cube_unit.rotation;
+		}
+
 		if (key == 'u') {
+			current_transform.affected = {};
+			current_transform.progress = 0.0f;
+			current_transform.axis = glm::vec3(0, -1, 0);
+			current_transform.direction = 1.0f;
 			for (int i = 0; i < 27; i++) {
 				CubeUnit& cube_unit = cube.units[i];
 				if (cube_unit.position.y >= 1.0) {
-					glm::mat4 rot = glm::rotate(glm::mat4(1.0f), glm::half_pi<float>(), glm::vec3(0, -1, 0));
-					cube_unit.position = glm::vec3(rot * glm::vec4(cube_unit.position, 1.0f));
-					cube_unit.rotation = rot * cube_unit.rotation;
+					current_transform.affected.push_back(std::ref(cube_unit));
 				}
 			}
 		}
 		if (key == 'd') {
+			current_transform.affected = {};
+			current_transform.progress = 0.0f;
+			current_transform.axis = glm::vec3(0, 1, 0);
+			current_transform.direction = 1.0f;
 			for (int i = 0; i < 27; i++) {
 				CubeUnit& cube_unit = cube.units[i];
 				if (cube_unit.position.y <= -1.0) {
-					glm::mat4 rot = glm::rotate(glm::mat4(1.0f), glm::half_pi<float>(), glm::vec3(0, 1, 0));
-					cube_unit.position = glm::vec3(rot * glm::vec4(cube_unit.position, 1.0f));
-					cube_unit.rotation = rot * cube_unit.rotation;
+					current_transform.affected.push_back(std::ref(cube_unit));
 				}
 			}
 		}
 		if (key == 'r') {
+			current_transform.affected = {};
+			current_transform.progress = 0.0f;
+			current_transform.axis = glm::vec3(-1, 0, 0);
+			current_transform.direction = 1.0f;
 			for (int i = 0; i < 27; i++) {
 				CubeUnit& cube_unit = cube.units[i];
 				if (cube_unit.position.x >= 1.0) {
-					glm::mat4 rot = glm::rotate(glm::mat4(1.0f), glm::half_pi<float>(), glm::vec3(-1, 0, 0));
-					cube_unit.position = glm::vec3(rot * glm::vec4(cube_unit.position, 1.0f));
-					cube_unit.rotation = rot * cube_unit.rotation;
+					current_transform.affected.push_back(std::ref(cube_unit));
 				}
 			}
 		}
 		if (key == 'l') {
+			current_transform.affected = {};
+			current_transform.progress = 0.0f;
+			current_transform.axis = glm::vec3(1, 0, 0);
+			current_transform.direction = 1.0f;
 			for (int i = 0; i < 27; i++) {
 				CubeUnit& cube_unit = cube.units[i];
 				if (cube_unit.position.x <= -1.0) {
-					glm::mat4 rot = glm::rotate(glm::mat4(1.0f), glm::half_pi<float>(), glm::vec3(1, 0, 0));
-					cube_unit.position = glm::vec3(rot * glm::vec4(cube_unit.position, 1.0f));
-					cube_unit.rotation = rot * cube_unit.rotation;
+					current_transform.affected.push_back(std::ref(cube_unit));
 				}
 			}
 		}
 		if (key == 'f') {
+			current_transform.affected = {};
+			current_transform.progress = 0.0f;
+			current_transform.axis = glm::vec3(0, 0, -1);
+			current_transform.direction = 1.0f;
 			for (int i = 0; i < 27; i++) {
 				CubeUnit& cube_unit = cube.units[i];
 				if (cube_unit.position.z >= 1.0) {
-					glm::mat4 rot = glm::rotate(glm::mat4(1.0f), glm::half_pi<float>(), glm::vec3(0, 0, -1));
-					cube_unit.position = glm::vec3(rot * glm::vec4(cube_unit.position, 1.0f));
-					cube_unit.rotation = rot * cube_unit.rotation;
+					current_transform.affected.push_back(std::ref(cube_unit));
 				}
 			}
 		}
 		if (key == 'b') {
+			current_transform.affected = {};
+			current_transform.progress = 0.0f;
+			current_transform.axis = glm::vec3(0, 0, 1);
+			current_transform.direction = 1.0f;
 			for (int i = 0; i < 27; i++) {
 				CubeUnit& cube_unit = cube.units[i];
 				if (cube_unit.position.z <= -1.0) {
-					glm::mat4 rot = glm::rotate(glm::mat4(1.0f), glm::half_pi<float>(), glm::vec3(0, 0, 1));
-					cube_unit.position = glm::vec3(rot * glm::vec4(cube_unit.position, 1.0f));
-					cube_unit.rotation = rot * cube_unit.rotation;
+					current_transform.affected.push_back(std::ref(cube_unit));
 				}
 			}
 		}
