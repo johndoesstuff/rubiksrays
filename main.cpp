@@ -1,10 +1,10 @@
 #include <iostream>
+#include <csignal>
 #include <ftxui/screen/screen.hpp>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 //#include "SDF.hpp"
 #include "CubeUnit.hpp"
-#include <csignal>
 #include <omp.h>
 #include <chrono>
 
@@ -170,7 +170,7 @@ CubeUnit MakeCubeUnit(glm::vec3 position) {
 		MakePlane({ 0,  0, -1}, ftxui::Color::RedLight), // Back
 		MakePlane({-1,  0,  0}, ftxui::Color::Blue),   // Left
 		MakePlane({ 1,  0,  0}, ftxui::Color::Green),  // Right
-		MakePlane({ 0,  1,  0}, ftxui::Color::Yellow),  // Top
+		MakePlane({ 0,  1,  0}, ftxui::Color::YellowLight),  // Top
 		MakePlane({ 0, -1,  0}, ftxui::Color::White), // Bottom
 	};
 
@@ -205,6 +205,19 @@ void render_cubeunit(CubeUnit cubeunit, ftxui::Screen& screen, glm::mat4 proj, g
 	}
 }
 
+Cube MakeCube() {
+	float padding = 1.2f;
+	Cube cube;
+	for (int i = 0; i < 27; i++) {
+		int x = i%3 - 1;
+		int y = i/3%3 - 1;
+		int z = i/9 - 1;
+		CubeUnit cube_unit = MakeCubeUnit(glm::vec3((padding + 1.0f) * (float)x, (padding + 1.0f) * (float)y, (padding + 1.0f) * (float)z));
+		cube.units[i] = cube_unit;
+	}
+	return cube;
+}
+
 int main() {
 	static auto start_time = std::chrono::high_resolution_clock::now();
 	std::signal(SIGINT, handle_exit);
@@ -226,12 +239,16 @@ int main() {
 	
 	int max_steps = 20;
 
-	CubeUnit cube = MakeCubeUnit(glm::vec3(0.0f, 0.0f, 0.0f));
+	Cube cube = MakeCube();
 
 	while (true) {
 		auto now = std::chrono::high_resolution_clock::now();
 		float time = std::chrono::duration<float>(now - start_time).count();
-		glm::vec3 camera(2.0f*std::sin(time), 0.0f, 2.0f*std::cos(time));
+		glm::vec3 camera(0.0f, 0.0f, 6.0f);
+		//y rotation
+		camera = glm::vec3(glm::rotate(glm::mat4(1.0f), time, glm::vec3(0, 1, 0)) * glm::vec4(camera, 1.0f));
+		//pitch rotation
+		camera = glm::vec3(glm::rotate(glm::mat4(1.0f), time/3, glm::vec3(1, 0, 0)) * glm::vec4(camera, 1.0f));
 		glm::vec3 camera_dir = normalize(-camera);
 		glm::mat4 view = glm::lookAt(camera, camera + camera_dir, glm::vec3(0, 1, 0));
 
@@ -248,7 +265,10 @@ int main() {
 		float aspectRatio = (float)width / (float)height / 2.0;
 		glm::mat4 proj = glm::perspective(fov, aspectRatio, 0.1f, 100.0f);
 
-		render_cubeunit(cube, screen, proj, view, zbuffer);
+		for (int i = 0; i < 27; i++) {
+			CubeUnit cube_unit = cube.units[i];
+			render_cubeunit(cube_unit, screen, proj, view, zbuffer);
+		}
 
 		std::string fps_text = "FPS: " + std::to_string(fps);
 		for (size_t i = 0; i < fps_text.size() && i < static_cast<size_t>(width); ++i) {

@@ -17,3 +17,7 @@ struct CubeUnit {
 	glm::vec3 position;
 	glm::mat4 rotation;
 };
+
+struct Cube {
+	CubeUnit units[27];
+};
