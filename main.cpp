@@ -221,12 +221,12 @@ Plane MakePlane(glm::vec3 normal, ftxui::Color color, bool invert_normal) {
 
 CubeUnit MakeCubeUnit(glm::vec3 position) {
 	std::array<Plane, 6> faces = {
-		MakePlane({ 0,  0,  1}, ftxui::Color::Red, true),    // Front
-		MakePlane({ 0,  0, -1}, ftxui::Color::RedLight, false), // Back
-		MakePlane({-1,  0,  0}, ftxui::Color::Blue, true),   // Left
-		MakePlane({ 1,  0,  0}, ftxui::Color::Green, true),  // Right
-		MakePlane({ 0,  1,  0}, ftxui::Color::YellowLight, true),  // Top
-		MakePlane({ 0, -1,  0}, ftxui::Color::White, true), // Bottom
+		MakePlane({ 0,  0,  1}, position.z < 1.0f ? ftxui::Color::Black : ftxui::Color::Red, true),    // Front
+		MakePlane({ 0,  0, -1}, position.z > -1.0f ? ftxui::Color::Black : ftxui::Color::RedLight, false), // Back
+		MakePlane({-1,  0,  0}, position.x > -1.0f ? ftxui::Color::Black : ftxui::Color::Blue, true),   // Left
+		MakePlane({ 1,  0,  0}, position.x < 1.0f ? ftxui::Color::Black : ftxui::Color::Green, true),  // Right
+		MakePlane({ 0,  1,  0}, position.y < 1.0f ? ftxui::Color::Black : ftxui::Color::YellowLight, true),  // Top
+		MakePlane({ 0, -1,  0}, position.y > -1.0f ? ftxui::Color::Black : ftxui::Color::White, true), // Bottom
 	};
 
 	CubeUnit unit;
@@ -253,15 +253,19 @@ void render_plane(const Plane& plane, ftxui::Screen& screen, const glm::mat4& pr
 
 void render_cubeunit(CubeUnit cubeunit, ftxui::Screen& screen, glm::mat4 proj, glm::mat4 view, std::vector<std::vector<float>>& zbuffer) {
 	for (int i = 0; i < 6; i++) {
-		Plane plane = cubeunit.plane[i];
-		plane.position += cubeunit.position;
-		plane.rotation *= cubeunit.rotation;
-		render_plane(plane, screen, proj, view, zbuffer);
+		const Plane& plane = cubeunit.plane[i];
+
+		Plane transformed_plane = plane;
+		transformed_plane.position = glm::vec3(cubeunit.rotation * glm::vec4(plane.position, 1.0f));
+		transformed_plane.rotation = cubeunit.rotation * plane.rotation;
+		transformed_plane.position += cubeunit.position;
+
+		render_plane(transformed_plane, screen, proj, view, zbuffer);
 	}
 }
 
 Cube MakeCube() {
-	float padding = 1.2f;
+	float padding = 0.3f;
 	Cube cube;
 	for (int i = 0; i < 27; i++) {
 		int x = i%3 - 1;
@@ -306,21 +310,95 @@ int main() {
 
 	while (true) {
 		char key = poll_keypress();
-		if (key == 'j') yaw_vel += 0.05;
-		if (key == 'k') yaw_vel -= 0.05;
-		if (key == 'h') pitch_vel += 0.05;
-		if (key == 'l') pitch_vel -= 0.05;
-		if (key == 'f') {
+		if (key == 'h') yaw_vel += 0.05;
+		if (key == 'j') yaw_vel -= 0.05;
+		if (key == 'g') pitch_vel += 0.05;
+		if (key == 'k') pitch_vel -= 0.05;
+		/*if (key == 'f') {
 			yaw_vel = 0.0f;
 			pitch_vel = 0.0f;
 			yaw = 0.0f;
 			pitch = 0.0f;
+		}*/
+		if (key == 'u') {
+			for (int i = 0; i < 27; i++) {
+				CubeUnit& cube_unit = cube.units[i];
+				if (cube_unit.position.y >= 1.0) {
+					glm::mat4 rot = glm::rotate(glm::mat4(1.0f), glm::half_pi<float>(), glm::vec3(0, -1, 0));
+					cube_unit.position = glm::vec3(rot * glm::vec4(cube_unit.position, 1.0f));
+					cube_unit.rotation = rot * cube_unit.rotation;
+				}
+			}
+		}
+		if (key == 'd') {
+			for (int i = 0; i < 27; i++) {
+				CubeUnit& cube_unit = cube.units[i];
+				if (cube_unit.position.y <= -1.0) {
+					glm::mat4 rot = glm::rotate(glm::mat4(1.0f), glm::half_pi<float>(), glm::vec3(0, 1, 0));
+					cube_unit.position = glm::vec3(rot * glm::vec4(cube_unit.position, 1.0f));
+					cube_unit.rotation = rot * cube_unit.rotation;
+				}
+			}
+		}
+		if (key == 'r') {
+			for (int i = 0; i < 27; i++) {
+				CubeUnit& cube_unit = cube.units[i];
+				if (cube_unit.position.x >= 1.0) {
+					glm::mat4 rot = glm::rotate(glm::mat4(1.0f), glm::half_pi<float>(), glm::vec3(-1, 0, 0));
+					cube_unit.position = glm::vec3(rot * glm::vec4(cube_unit.position, 1.0f));
+					cube_unit.rotation = rot * cube_unit.rotation;
+				}
+			}
+		}
+		if (key == 'l') {
+			for (int i = 0; i < 27; i++) {
+				CubeUnit& cube_unit = cube.units[i];
+				if (cube_unit.position.x <= -1.0) {
+					glm::mat4 rot = glm::rotate(glm::mat4(1.0f), glm::half_pi<float>(), glm::vec3(1, 0, 0));
+					cube_unit.position = glm::vec3(rot * glm::vec4(cube_unit.position, 1.0f));
+					cube_unit.rotation = rot * cube_unit.rotation;
+				}
+			}
+		}
+		if (key == 'f') {
+			for (int i = 0; i < 27; i++) {
+				CubeUnit& cube_unit = cube.units[i];
+				if (cube_unit.position.z >= 1.0) {
+					glm::mat4 rot = glm::rotate(glm::mat4(1.0f), glm::half_pi<float>(), glm::vec3(0, 0, -1));
+					cube_unit.position = glm::vec3(rot * glm::vec4(cube_unit.position, 1.0f));
+					cube_unit.rotation = rot * cube_unit.rotation;
+				}
+			}
+		}
+		if (key == 'b') {
+			for (int i = 0; i < 27; i++) {
+				CubeUnit& cube_unit = cube.units[i];
+				if (cube_unit.position.z <= -1.0) {
+					glm::mat4 rot = glm::rotate(glm::mat4(1.0f), glm::half_pi<float>(), glm::vec3(0, 0, 1));
+					cube_unit.position = glm::vec3(rot * glm::vec4(cube_unit.position, 1.0f));
+					cube_unit.rotation = rot * cube_unit.rotation;
+				}
+			}
 		}
 
 		yaw += yaw_vel;
 		yaw_vel /= 1.1;
 		pitch += pitch_vel;
 		pitch_vel /= 1.1;
+		//pitch /= 1.01;
+		//yaw /= 1.01;
+		float pitch_iso = 0.6f;
+		float yaw_iso = 0.6f;
+		if (pitch > pitch_iso) {
+			pitch = 0.99*pitch + 0.01*pitch_iso;
+		} else if (pitch < -pitch_iso) {
+			pitch = 0.99*pitch - 0.01*pitch_iso;
+		}
+		if (yaw > yaw_iso) {
+			yaw = 0.99*yaw + 0.01*yaw_iso;
+		} else if (yaw < -yaw_iso) {
+			yaw = 0.99*yaw - 0.01*yaw_iso;
+		}
 
 		pitch = glm::clamp(pitch, -glm::half_pi<float>() + 0.01f, glm::half_pi<float>() - 0.01f);
 
