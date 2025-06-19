@@ -6,11 +6,39 @@
 //#include "SDF.hpp"
 #include "CubeUnit.hpp"
 #include <omp.h>
+#include <unistd.h>
+#include <termios.h>
+#include <poll.h>
 #include <chrono>
+
+void set_raw_mode(bool enable) {
+	static struct termios oldt;
+	struct termios newt;
+	if (enable) {
+		tcgetattr(STDIN_FILENO, &oldt);
+		newt = oldt;
+		newt.c_lflag &= ~(ICANON | ECHO);
+		tcsetattr(STDIN_FILENO, TCSANOW, &newt);
+	} else {
+		tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+	}
+}
 
 void handle_exit(int) {
 	std::cout << "\033[?25h" << std::flush;
+	set_raw_mode(false);
 	std::exit(0);
+}
+
+char poll_keypress() {
+	struct pollfd pfd = { STDIN_FILENO, POLLIN, 0 };
+	if (poll(&pfd, 1, 0) > 0) {
+		char c;
+		if (read(STDIN_FILENO, &c, 1) > 0) {
+			return c;
+		}
+	}
+	return '\0';
 }
 
 struct Vec2i {
@@ -219,6 +247,7 @@ Cube MakeCube() {
 }
 
 int main() {
+	set_raw_mode(true);
 	static auto start_time = std::chrono::high_resolution_clock::now();
 	std::signal(SIGINT, handle_exit);
 	std::signal(SIGTERM, handle_exit);
@@ -241,16 +270,33 @@ int main() {
 
 	Cube cube = MakeCube();
 
+	float pitch = 0.0f;
+	float yaw = 0.0f;
+
 	while (true) {
+		char key = poll_keypress();
+		if (key == 'j') yaw += 0.05;
+		if (key == 'k') yaw -= 0.05;
+		if (key == 'h') pitch += 0.05;
+		if (key == 'l') pitch -= 0.05;
+
+		pitch = glm::clamp(pitch, -glm::half_pi<float>() + 0.01f, glm::half_pi<float>() - 0.01f);
+
 		auto now = std::chrono::high_resolution_clock::now();
 		float time = std::chrono::duration<float>(now - start_time).count();
-		glm::vec3 camera(0.0f, 0.0f, 6.0f);
-		//y rotation
-		camera = glm::vec3(glm::rotate(glm::mat4(1.0f), time, glm::vec3(0, 1, 0)) * glm::vec4(camera, 1.0f));
-		//pitch rotation
-		camera = glm::vec3(glm::rotate(glm::mat4(1.0f), time/3, glm::vec3(1, 0, 0)) * glm::vec4(camera, 1.0f));
-		glm::vec3 camera_dir = normalize(-camera);
-		glm::mat4 view = glm::lookAt(camera, camera + camera_dir, glm::vec3(0, 1, 0));
+
+		glm::vec3 camera;
+		float r = 8.0f;
+		camera.x = r * std::cos(pitch) * std::sin(yaw);
+		camera.y = r * std::sin(pitch);
+		camera.z = r * std::cos(pitch) * std::cos(yaw);
+
+		//glm::mat4 rot = glm::rotate(glm::mat4(1.0f), pitch, glm::vec3(1, 0, 0));
+		//rot = glm::rotate(rot, yaw, glm::vec3(0, 1, 0));
+		//camera = glm::vec3(rot * glm::vec4(camera, 1.0f));
+
+		//glm::vec3 camera_dir = normalize(-camera);
+		glm::mat4 view = glm::lookAt(camera, glm::vec3(0.0f), glm::vec3(0, 1, 0));
 
 		zbuffer.assign(height, std::vector<float>(width, INFINITY));
 
