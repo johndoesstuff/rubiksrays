@@ -10,6 +10,7 @@
 #include <termios.h>
 #include <poll.h>
 #include <chrono>
+#include <thread>
 
 void set_raw_mode(bool enable) {
 	static struct termios oldt;
@@ -43,6 +44,14 @@ char poll_keypress() {
 
 struct Vec2i {
 	int x, y;
+};
+
+char32_t brightness_chars[] = {
+    U' ',    // Empty space - no ink
+    U'-',    // Light shade
+    U'=',    // Medium shade
+    U'X',    // Dark shade
+    U'@',    // Full block - darkest
 };
 
 void render_line(
@@ -81,7 +90,7 @@ void render_line(
 			zbuffer[draw_y][draw_x] = z;
 			auto& pixel = screen.PixelAt(draw_x, draw_y);
 			pixel.foreground_color = color;
-			pixel.character = U'#';
+			pixel.character = U'@';
 		}
 
 		z += dz;
@@ -150,6 +159,20 @@ void fill_triangle(
 }
 
 void render_triangle(Triangle& triangle, ftxui::Screen& screen, glm::mat4 proj, glm::mat4 view, std::vector<std::vector<float>>& zbuffer) {
+	glm::vec3 p0_view = glm::vec3(view * glm::vec4(triangle.points[0], 1.0f));
+	glm::vec3 p1_view = glm::vec3(view * glm::vec4(triangle.points[1], 1.0f));
+	glm::vec3 p2_view = glm::vec3(view * glm::vec4(triangle.points[2], 1.0f));
+
+	glm::vec3 edge1 = p1_view - p0_view;
+	glm::vec3 edge2 = p2_view - p0_view;
+	glm::vec3 normal = glm::normalize(glm::cross(edge1, edge2));
+	
+	float dot = glm::dot(normal, p0_view);
+
+	if (dot <= 0) {
+		return;
+	}
+
 	glm::vec4 v0 = proj * view * glm::vec4(triangle.points[0], 1.0f);
 	glm::vec4 v1 = proj * view * glm::vec4(triangle.points[1], 1.0f);
 	glm::vec4 v2 = proj * view * glm::vec4(triangle.points[2], 1.0f);
@@ -173,14 +196,18 @@ void render_triangle(Triangle& triangle, ftxui::Screen& screen, glm::mat4 proj, 
 	fill_triangle(vi0, v0.z, vi1, v1.z, vi2, v2.z, screen, triangle.color, zbuffer);
 }
 
-Plane MakePlane(glm::vec3 normal, ftxui::Color color) {
+Plane MakePlane(glm::vec3 normal, ftxui::Color color, bool invert_normal) {
 	glm::vec3 p0 = {-0.5f, -0.5f, 0.0f};
 	glm::vec3 p1 = { 0.5f, -0.5f, 0.0f};
 	glm::vec3 p2 = { 0.5f,  0.5f, 0.0f};
 	glm::vec3 p3 = {-0.5f,  0.5f, 0.0f};
 
 	Triangle tri1 = {{p0, p1, p2}, color};
+	if (invert_normal)
+		tri1 = {{p2, p1, p0}, color};
 	Triangle tri2 = {{p2, p3, p0}, color};
+	if (invert_normal)
+		tri2 = {{p0, p3, p2}, color};
 
 	glm::vec3 axis = glm::cross(glm::vec3(0, 0, 1), normal);
 	float angle = acos(glm::dot(glm::normalize(normal), glm::vec3(0, 0, 1)));
@@ -194,12 +221,12 @@ Plane MakePlane(glm::vec3 normal, ftxui::Color color) {
 
 CubeUnit MakeCubeUnit(glm::vec3 position) {
 	std::array<Plane, 6> faces = {
-		MakePlane({ 0,  0,  1}, ftxui::Color::Red),    // Front
-		MakePlane({ 0,  0, -1}, ftxui::Color::RedLight), // Back
-		MakePlane({-1,  0,  0}, ftxui::Color::Blue),   // Left
-		MakePlane({ 1,  0,  0}, ftxui::Color::Green),  // Right
-		MakePlane({ 0,  1,  0}, ftxui::Color::YellowLight),  // Top
-		MakePlane({ 0, -1,  0}, ftxui::Color::White), // Bottom
+		MakePlane({ 0,  0,  1}, ftxui::Color::Red, true),    // Front
+		MakePlane({ 0,  0, -1}, ftxui::Color::RedLight, false), // Back
+		MakePlane({-1,  0,  0}, ftxui::Color::Blue, true),   // Left
+		MakePlane({ 1,  0,  0}, ftxui::Color::Green, true),  // Right
+		MakePlane({ 0,  1,  0}, ftxui::Color::YellowLight, true),  // Top
+		MakePlane({ 0, -1,  0}, ftxui::Color::White, true), // Bottom
 	};
 
 	CubeUnit unit;
@@ -255,6 +282,8 @@ int main() {
 	using Clock = std::chrono::high_resolution_clock;
 	auto last_time = Clock::now();
 	int fps = 0;
+	const double target_framerate = 60.0;
+	const auto target_frame_duration = std::chrono::duration<double>(1.0 / target_framerate);
 
 	auto screen = ftxui::Screen::Create(
 		ftxui::Dimension::Full(),
@@ -272,13 +301,26 @@ int main() {
 
 	float pitch = 0.0f;
 	float yaw = 0.0f;
+	float pitch_vel = 0.0f;
+	float yaw_vel = 0.0f;
 
 	while (true) {
 		char key = poll_keypress();
-		if (key == 'j') yaw += 0.05;
-		if (key == 'k') yaw -= 0.05;
-		if (key == 'h') pitch += 0.05;
-		if (key == 'l') pitch -= 0.05;
+		if (key == 'j') yaw_vel += 0.05;
+		if (key == 'k') yaw_vel -= 0.05;
+		if (key == 'h') pitch_vel += 0.05;
+		if (key == 'l') pitch_vel -= 0.05;
+		if (key == 'f') {
+			yaw_vel = 0.0f;
+			pitch_vel = 0.0f;
+			yaw = 0.0f;
+			pitch = 0.0f;
+		}
+
+		yaw += yaw_vel;
+		yaw_vel /= 1.1;
+		pitch += pitch_vel;
+		pitch_vel /= 1.1;
 
 		pitch = glm::clamp(pitch, -glm::half_pi<float>() + 0.01f, glm::half_pi<float>() - 0.01f);
 
@@ -290,10 +332,6 @@ int main() {
 		camera.x = r * std::cos(pitch) * std::sin(yaw);
 		camera.y = r * std::sin(pitch);
 		camera.z = r * std::cos(pitch) * std::cos(yaw);
-
-		//glm::mat4 rot = glm::rotate(glm::mat4(1.0f), pitch, glm::vec3(1, 0, 0));
-		//rot = glm::rotate(rot, yaw, glm::vec3(0, 1, 0));
-		//camera = glm::vec3(rot * glm::vec4(camera, 1.0f));
 
 		//glm::vec3 camera_dir = normalize(-camera);
 		glm::mat4 view = glm::lookAt(camera, glm::vec3(0.0f), glm::vec3(0, 1, 0));
@@ -331,8 +369,13 @@ int main() {
 
 		auto current_time = Clock::now();
 		std::chrono::duration<double> delta = current_time - last_time;
-		last_time = current_time;
+		if (delta < target_frame_duration) {
+			std::this_thread::sleep_for(target_frame_duration - delta);
+		}
+		current_time = Clock::now();
+		delta = current_time - last_time;
 		fps = static_cast<int>(1.0 / delta.count());
+		last_time = current_time;
 	}
 }
 
