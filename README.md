@@ -21,25 +21,37 @@ A fully animated 3d Rubiks Cube in your terminal. Written in C++ with [FTXUI](ht
 
 #### Camera
 w/s Tilt up/down
+
 a/d Rotate left/right
 
 #### Face Moves
 i/o U/U'
+
 p/; R/R'
+
 u/j L/L'
+
 k/l F/F'
+
 ,/. B/B'
+
 m// D/D'
 
 #### Cube Rotations
 r/f X/X'
+
 q/e Y/Y'
+
 x/c Z/Z'
+
 
 #### Misc
 space Random Move
+
 z Undo Last Move
+
 h Toggle Help
+
 Ctrl+c Exit
 
 ## Build Instructions
