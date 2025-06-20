@@ -54,6 +54,8 @@ h Toggle Help
 
 Ctrl+c Exit
 
+---
+
 ## Build Instructions
 
 ### Dependencies
