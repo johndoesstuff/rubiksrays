@@ -314,6 +314,7 @@ int main() {
 
 	Transform current_transform;
 	current_transform.progress = 1.0f;
+	std::vector<char> move_list = {};
 
 	while (true) {
 		char key = poll_keypress();
@@ -581,9 +582,17 @@ int main() {
 			}
 		}
 
-		yaw += yaw_vel;
-
-		yaw += yaw_vel;
+		if (current_transform.progress == 0.0f) {
+			move_list.push_back(key);
+		}
+		if (move_list.size() >= 2) {
+			int li = move_list.size() - 1;
+			int sli = li - 1;
+			if (move_list[li] != move_list[sli] && tolower(move_list[li]) == tolower(move_list[sli])) {
+				move_list.pop_back();
+				move_list.pop_back();
+			}
+		}
 
 		yaw += yaw_vel;
 		yaw_vel /= 1.1;
@@ -640,6 +649,13 @@ int main() {
 		for (size_t i = 0; i < fps_text.size() && i < static_cast<size_t>(width); ++i) {
 			auto& pixel = screen.PixelAt(i, 0); // top-left
 			pixel.character = fps_text[i];
+			pixel.foreground_color = ftxui::Color::White;
+			pixel.bold = true;
+		}
+
+		for (size_t i = 0; i < move_list.size() && i < static_cast<size_t>(width); ++i) {
+			auto& pixel = screen.PixelAt(i, height-1);
+			pixel.character = move_list[i - ((move_list.size() > width) ? (width - move_list.size()) : 0)];
 			pixel.foreground_color = ftxui::Color::White;
 			pixel.bold = true;
 		}
