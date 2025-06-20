@@ -1,3 +1,5 @@
+//DEPRECATED
+
 #ifndef RUBIKSCUBE_HPP
 #define RUBIKSCUBE_HPP
 

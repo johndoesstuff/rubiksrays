@@ -15,6 +15,7 @@
 #include <string>
 #include <random>
 
+// COLLECT USER INPUT
 void set_raw_mode(bool enable) {
 	static struct termios oldt;
 	struct termios newt;
@@ -28,12 +29,14 @@ void set_raw_mode(bool enable) {
 	}
 }
 
+// DONT BREAK CURSOR ON EXIT
 void handle_exit(int) {
 	std::cout << "\033[?25h" << std::flush;
 	set_raw_mode(false);
 	std::exit(0);
 }
 
+// DETECT KEY EVENTS
 char poll_keypress() {
 	struct pollfd pfd = { STDIN_FILENO, POLLIN, 0 };
 	if (poll(&pfd, 1, 0) > 0) {
@@ -49,14 +52,7 @@ struct Vec2i {
 	int x, y;
 };
 
-char32_t brightness_chars[] = {
-    U' ',    // Empty space - no ink
-    U'-',    // Light shade
-    U'=',    // Medium shade
-    U'X',    // Dark shade
-    U'@',    // Full block - darkest
-};
-
+// RENDER LINE ON SCREEN WITH ZBUFFER FROM x0 x0 z0 TO x1 y1 z1
 void render_line(
 		int x0, int y0, float z0,
 		int x1, int y1, float z1,
@@ -105,6 +101,7 @@ void render_line(
 	}
 }
 
+// SCANLINE TRIANGLE FILL FUNCTION
 void fill_triangle(
 		Vec2i v0, float z0,
 		Vec2i v1, float z1,
@@ -161,6 +158,7 @@ void fill_triangle(
 	}
 }
 
+// PROJECTS TRIANGLE VECTORS AND SENDS TO TRIANGLE SCANLINE FILL
 void render_triangle(Triangle& triangle, ftxui::Screen& screen, glm::mat4 proj, glm::mat4 view, std::vector<std::vector<float>>& zbuffer) {
 	glm::vec3 p0_view = glm::vec3(view * glm::vec4(triangle.points[0], 1.0f));
 	glm::vec3 p1_view = glm::vec3(view * glm::vec4(triangle.points[1], 1.0f));
@@ -199,6 +197,7 @@ void render_triangle(Triangle& triangle, ftxui::Screen& screen, glm::mat4 proj, 
 	fill_triangle(vi0, v0.z, vi1, v1.z, vi2, v2.z, screen, triangle.color, zbuffer);
 }
 
+// CONSTRUCTS PLANE FROM NORMAL
 Plane MakePlane(glm::vec3 normal, ftxui::Color color, bool invert_normal) {
 	glm::vec3 p0 = {-0.5f, -0.5f, 0.0f};
 	glm::vec3 p1 = { 0.5f, -0.5f, 0.0f};
@@ -222,6 +221,7 @@ Plane MakePlane(glm::vec3 normal, ftxui::Color color, bool invert_normal) {
 	return Plane{tri1, tri2, normal * 0.5f, rotation};
 }
 
+// CONSTRUCTS UNIT OF RUBIKS CUBE (27 TOTAL)
 CubeUnit MakeCubeUnit(glm::vec3 position) {
 	float padding = 0.2f;
 	std::array<Plane, 6> faces = {
@@ -242,6 +242,7 @@ CubeUnit MakeCubeUnit(glm::vec3 position) {
 	return unit;
 }
 
+// APPLIES PLANAR TRANSFORMATIONS AND SENDS TO TRIANGLE RENDERING PIPELINE
 void render_plane(const Plane& plane, ftxui::Screen& screen, const glm::mat4& proj, const glm::mat4& view, std::vector<std::vector<float>>& zbuffer) {
 	glm::mat4 model = glm::translate(glm::mat4(1.0f), plane.position) * plane.rotation;
 
@@ -255,6 +256,7 @@ void render_plane(const Plane& plane, ftxui::Screen& screen, const glm::mat4& pr
 	}
 }
 
+// APPLIES CUBEUNIT TRANSFORMATIONS AND SENDS TO PLANE RENDERING PIPELINE
 void render_cubeunit(CubeUnit cubeunit, ftxui::Screen& screen, glm::mat4 proj, glm::mat4 view, std::vector<std::vector<float>>& zbuffer) {
 	for (int i = 0; i < 6; i++) {
 		const Plane& plane = cubeunit.plane[i];
@@ -268,6 +270,7 @@ void render_cubeunit(CubeUnit cubeunit, ftxui::Screen& screen, glm::mat4 proj, g
 	}
 }
 
+// BUILDS CUBE (3x3x3)
 Cube MakeCube() {
 	float padding = 0.4f;
 	Cube cube;
@@ -282,17 +285,20 @@ Cube MakeCube() {
 }
 
 int main() {
+	// SETUP TERMINAL FOR VISUAL MODE AND GET USER INPUT
 	set_raw_mode(true);
 	static auto start_time = std::chrono::high_resolution_clock::now();
 	std::signal(SIGINT, handle_exit);
 	std::signal(SIGTERM, handle_exit);
 
+	// INITIALIZE CLOCK (USEFUL FOR FPS AND DELTATIME TRANSITIONS)
 	using Clock = std::chrono::high_resolution_clock;
 	auto last_time = Clock::now();
 	int fps = 0;
 	const double target_framerate = 60.0;
 	const auto target_frame_duration = std::chrono::duration<double>(1.0 / target_framerate);
 
+	// INITIALIZE SCREEN
 	auto screen = ftxui::Screen::Create(
 		ftxui::Dimension::Full(),
 		ftxui::Dimension::Full()
@@ -300,35 +306,36 @@ int main() {
 
 	int width = screen.dimx();
 	int height = screen.dimy();
-	std::vector<std::vector<float>> zbuffer(height, std::vector<float>(width, INFINITY));
 	double aspect = width / (double)height / 2.0;
-	
-	int max_steps = 20;
 
+	// INITIALIZE ZBUFFER TO INFINITY
+	std::vector<std::vector<float>> zbuffer(height, std::vector<float>(width, INFINITY));
+	
+	// INITIALIZE CUBE
 	Cube cube = MakeCube();
 
+	// INITIALIZE CAMERA CONTROLS
 	float pitch = 0.0f;
 	float yaw = 0.0f;
 	float pitch_vel = 0.0f;
 	float yaw_vel = 0.0f;
 
+	// INITIALIZE TRANSFORM AND MOVE LIST
 	Transform current_transform;
 	current_transform.progress = 1.0f;
 	std::vector<char> move_list = {};
 
+	// MAIN LOOP
 	while (true) {
 		char key = poll_keypress();
-		if (key == 'h') yaw_vel += 0.05;
-		if (key == 'j') yaw_vel -= 0.05;
-		if (key == 'g') pitch_vel += 0.05;
-		if (key == 'k') pitch_vel -= 0.05;
-		/*if (key == 'f') {
-			yaw_vel = 0.0f;
-			pitch_vel = 0.0f;
-			yaw = 0.0f;
-			pitch = 0.0f;
-		}*/
 
+		// CAMERA CONTROLS
+		if (key == 'w') yaw_vel += 0.05;
+		if (key == 'e') yaw_vel -= 0.05;
+		if (key == 'o') pitch_vel += 0.05;
+		if (key == 'p') pitch_vel -= 0.05;
+
+		// STARTING A NEW CUBE MOVE CANCELS PREVIOUS ANIMATIONS
 		bool cancel_transform = false;
 		if (key == 'u') cancel_transform = true;
 		if (key == 'd') cancel_transform = true;
@@ -348,6 +355,8 @@ int main() {
 		if (key == 'X') cancel_transform = true;
 		if (key == 'Y') cancel_transform = true;
 		if (key == 'Z') cancel_transform = true;
+
+		// SPACE = RANDOM MOVE
 		if (key == ' ') {
 			cancel_transform = true;
 			std::string moves = "udrlfbUDRLFB";
@@ -357,6 +366,8 @@ int main() {
 			
 			key = moves[dis(gen)];
 		}
+
+		// Q = UNDO LAST MOVE (DO INVERSE OF LAST MOVE)
 		if (key == 'q') {
 			cancel_transform = true;
 			if (move_list.size() > 0) {
@@ -370,18 +381,24 @@ int main() {
 				key = op;
 			}
 		}
+
+		// CLAMP PRECISION TO AVOID ARTIFACTS
 		if (current_transform.progress > 0.99) cancel_transform = true;
 		if (std::abs(yaw_vel) < 0.001) yaw_vel = 0.0f;
 		if (std::abs(pitch_vel) < 0.001) pitch_vel = 0.0f;
 
+		// CALCULATE TRANSFORM PROGRESS
 		double temp = current_transform.progress;
 		current_transform.progress = current_transform.progress * 0.9 + 0.1;
 		double delta_trans = current_transform.progress - temp;
+
+		// CANCELING TRANSFORM SETS DELTA TRANSFORM TO THE REMAINING TRANSFORM
 		if (cancel_transform) {
 			delta_trans += 1.0 - current_transform.progress;
 			current_transform.progress = 1.0f;
 		}
 
+		// APPLY TRANSFORM
 		for ( auto& ref : current_transform.affected ) {
 			CubeUnit& cube_unit = ref.get();
 
@@ -390,6 +407,7 @@ int main() {
 			cube_unit.rotation = rot * cube_unit.rotation;
 		}
 
+		// KEY EVENTS
 		if (key == 'u') {
 			current_transform.affected = {};
 			current_transform.progress = 0.0f;
@@ -595,9 +613,12 @@ int main() {
 			}
 		}
 
+		// IF NEW TRANSFORM STARTED ADD CURRENT KEY TO MOVES
 		if (current_transform.progress == 0.0f) {
 			move_list.push_back(key);
 		}
+
+		// CHECK FOR CANCELING MOVES
 		if (move_list.size() >= 2) {
 			int li = move_list.size() - 1;
 			int sli = li - 1;
@@ -606,9 +627,12 @@ int main() {
 				move_list.pop_back();
 			}
 		}
+
+		// CHECK FOR TRIPLE MOVES
 		if (move_list.size() >= 3) { 
 			int li = move_list.size() - 1;
 			if (move_list[li] == move_list[li-1] && move_list[li-1] == move_list[li-2]) {
+				// ANY TRIPLE MOVE CAN BE REDUCED TO ITS OPPOSITE; EX yyy => Y, YYY => y
 				char op = move_list[li];
 				if (tolower(op) == move_list[li]) {
 					op = toupper(move_list[li]);
@@ -622,12 +646,13 @@ int main() {
 			}
 		}
 
+		// APPLY VELOCITIES FOR SMOOTH ROTATION
 		yaw += yaw_vel;
 		yaw_vel /= 1.1;
 		pitch += pitch_vel;
 		pitch_vel /= 1.1;
-		//pitch /= 1.01;
-		//yaw /= 1.01;
+
+		// SMOOTHLY CLAMP VIEW TO PSEUDO-ISOMETRIC RANGE
 		float pitch_iso = 0.6f;
 		float yaw_iso = 0.6f;
 		if (pitch > pitch_iso) {
@@ -641,22 +666,23 @@ int main() {
 			yaw = 0.99*yaw - 0.01*yaw_iso;
 		}
 
+		// PITCH CANNOT GO ABOVE OR BELOW 2PI
 		pitch = glm::clamp(pitch, -glm::half_pi<float>() + 0.01f, glm::half_pi<float>() - 0.01f);
 
-		auto now = std::chrono::high_resolution_clock::now();
-		float time = std::chrono::duration<float>(now - start_time).count();
-
+		// INITIALIZE CAMERA
 		glm::vec3 camera;
+
+		// R = CAMERA RADIUS TO CUBE
 		float r = 8.0f;
 		camera.x = r * std::cos(pitch) * std::sin(yaw);
 		camera.y = r * std::sin(pitch);
 		camera.z = r * std::cos(pitch) * std::cos(yaw);
 
-		//glm::vec3 camera_dir = normalize(-camera);
+		// SET VIEW AND ZBUFFER
 		glm::mat4 view = glm::lookAt(camera, glm::vec3(0.0f), glm::vec3(0, 1, 0));
-
 		zbuffer.assign(height, std::vector<float>(width, INFINITY));
 
+		// CLEAR SCREEN
 		for (int y = 0; y < height; y++) {
 			for (int x = 0; x < width; x++) {
 				auto& pixel = screen.PixelAt(x, y);
@@ -664,15 +690,18 @@ int main() {
 			}
 		}
 
+		// INITIALIZE PROJECTION MATRIX
 		float fov = glm::radians(70.0f);
 		float aspectRatio = (float)width / (float)height / 2.0;
 		glm::mat4 proj = glm::perspective(fov, aspectRatio, 0.1f, 100.0f);
 
+		// RENDER CUBE UNITS
 		for (int i = 0; i < 27; i++) {
 			CubeUnit cube_unit = cube.units[i];
 			render_cubeunit(cube_unit, screen, proj, view, zbuffer);
 		}
 
+		// DISPLAY FPS
 		std::string fps_text = "FPS: " + std::to_string(fps);
 		for (size_t i = 0; i < fps_text.size() && i < static_cast<size_t>(width); ++i) {
 			auto& pixel = screen.PixelAt(i, 0); // top-left
@@ -681,6 +710,7 @@ int main() {
 			pixel.bold = true;
 		}
 
+		// DISPLAY MOVE LIST
 		for (size_t i = 0; i < move_list.size() && i < static_cast<size_t>(width); ++i) {
 			auto& pixel = screen.PixelAt(i, height-1);
 			pixel.character = move_list[i - ((move_list.size() > width) ? (width - move_list.size()) : 0)];
@@ -688,18 +718,24 @@ int main() {
 			pixel.bold = true;
 		}
 
+		// DISABLE CURSOR AND FLUSH SCREEN
 		std::cout << "\033[?25l";
 		std::cout << "\033[H";
 		std::cout << screen.ToString();
 		std::cout.flush();
 
+		// PREPARE TIME FOR NEXT FRAME CALCULATIONS
 		auto current_time = Clock::now();
 		std::chrono::duration<double> delta = current_time - last_time;
+
+		// CAP FRAMERATE TO 60FPS
 		if (delta < target_frame_duration) {
 			std::this_thread::sleep_for(target_frame_duration - delta);
 		}
 		current_time = Clock::now();
 		delta = current_time - last_time;
+
+		// UPDATE FPS
 		fps = static_cast<int>(1.0 / delta.count());
 		last_time = current_time;
 	}

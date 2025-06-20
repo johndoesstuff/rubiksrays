@@ -1,3 +1,5 @@
+//DEPRECATED
+
 #include "RubiksCube.hpp"
 
 RubiksCube::RubiksCube() {
