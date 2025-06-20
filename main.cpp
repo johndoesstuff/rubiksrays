@@ -357,6 +357,19 @@ int main() {
 			
 			key = moves[dis(gen)];
 		}
+		if (key == 'q') {
+			cancel_transform = true;
+			if (move_list.size() > 0) {
+				int li = move_list.size() - 1;
+				char op = move_list[li];
+				if (tolower(op) == move_list[li]) {
+					op = toupper(move_list[li]);
+				} else {
+					op = tolower(move_list[li]);
+				}
+				key = op;
+			}
+		}
 		if (current_transform.progress > 0.99) cancel_transform = true;
 		if (std::abs(yaw_vel) < 0.001) yaw_vel = 0.0f;
 		if (std::abs(pitch_vel) < 0.001) pitch_vel = 0.0f;
@@ -591,6 +604,21 @@ int main() {
 			if (move_list[li] != move_list[sli] && tolower(move_list[li]) == tolower(move_list[sli])) {
 				move_list.pop_back();
 				move_list.pop_back();
+			}
+		}
+		if (move_list.size() >= 3) { 
+			int li = move_list.size() - 1;
+			if (move_list[li] == move_list[li-1] && move_list[li-1] == move_list[li-2]) {
+				char op = move_list[li];
+				if (tolower(op) == move_list[li]) {
+					op = toupper(move_list[li]);
+				} else {
+					op = tolower(move_list[li]);
+				}
+				move_list.pop_back();
+				move_list.pop_back();
+				move_list.pop_back();
+				move_list.push_back(op);
 			}
 		}
 
