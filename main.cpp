@@ -327,57 +327,75 @@ int main() {
 		char key = poll_keypress();
 
 		// CAMERA CONTROLS
-		if (key == 'w') yaw_vel += 0.05;
-		if (key == 'e') yaw_vel -= 0.05;
-		if (key == 'o') pitch_vel += 0.05;
-		if (key == 'p') pitch_vel -= 0.05;
+		if (key == 'd') yaw_vel += 0.05;
+		if (key == 'a') yaw_vel -= 0.05;
+		if (key == 'w') pitch_vel += 0.05;
+		if (key == 's') pitch_vel -= 0.05;
 
-		// STARTING A NEW CUBE MOVE CANCELS PREVIOUS ANIMATIONS
-		bool cancel_transform = false;
-		if (key == 'u') cancel_transform = true;
-		if (key == 'd') cancel_transform = true;
-		if (key == 'r') cancel_transform = true;
-		if (key == 'l') cancel_transform = true;
-		if (key == 'f') cancel_transform = true;
-		if (key == 'b') cancel_transform = true;
-		if (key == 'U') cancel_transform = true;
-		if (key == 'D') cancel_transform = true;
-		if (key == 'R') cancel_transform = true;
-		if (key == 'L') cancel_transform = true;
-		if (key == 'F') cancel_transform = true;
-		if (key == 'B') cancel_transform = true;
-		if (key == 'x') cancel_transform = true;
-		if (key == 'y') cancel_transform = true;
-		if (key == 'z') cancel_transform = true;
-		if (key == 'X') cancel_transform = true;
-		if (key == 'Y') cancel_transform = true;
-		if (key == 'Z') cancel_transform = true;
+		// CONTROL MAPPING
+		char move = '\0';
+
+		if (key == 'i') move = 'u';
+		if (key == 'o') move = 'U';
+
+		if (key == 'p') move = 'r';
+		if (key == ';') move = 'R';
+
+		if (key == 'u') move = 'L';
+		if (key == 'j') move = 'l';
+
+		if (key == 'k') move = 'F';
+		if (key == 'l') move = 'f';
+
+		if (key == ',') move = 'b';
+		if (key == '.') move = 'B';
+
+		if (key == 'm') move = 'D';
+		if (key == '/') move = 'd';
+
+		// TRANSFORM MOVE MAPPING
+		if (key == 'q') move = 'y';
+		if (key == 'e') move = 'Y';
+
+		if (key == 'r') move = 'x';
+		if (key == 'f') move = 'X';
+
+		if (key == 'x') move = 'Z';
+		if (key == 'c') move = 'z';
+
 
 		// SPACE = RANDOM MOVE
 		if (key == ' ') {
-			cancel_transform = true;
 			std::string moves = "udrlfbUDRLFB";
 			std::random_device rd;
 			std::mt19937 gen(rd());
 			std::uniform_int_distribution<> dis(0, moves.size() - 1);
 			
-			key = moves[dis(gen)];
+			move = moves[dis(gen)];
 		}
 
-		// Q = UNDO LAST MOVE (DO INVERSE OF LAST MOVE)
-		if (key == 'q') {
-			cancel_transform = true;
+		// Z = UNDO LAST MOVE (DO INVERSE OF LAST MOVE)
+		if (key == 'z') {
 			if (move_list.size() > 0) {
-				int li = move_list.size() - 1;
-				char op = move_list[li];
-				if (tolower(op) == move_list[li]) {
-					op = toupper(move_list[li]);
-				} else {
-					op = tolower(move_list[li]);
-				}
-				key = op;
+				char last_move = move_list.back();
+				move = islower(last_move) ? toupper(last_move) : tolower(last_move);
 			}
 		}
+
+		// STARTING A NEW CUBE MOVE CANCELS PREVIOUS ANIMATIONS
+		bool starting_move = false;
+		bool cancel_transform = false;
+		if (tolower(move) == 'u') starting_move = true;
+		if (tolower(move) == 'd') starting_move = true;
+		if (tolower(move) == 'r') starting_move = true;
+		if (tolower(move) == 'l') starting_move = true;
+		if (tolower(move) == 'f') starting_move = true;
+		if (tolower(move) == 'b') starting_move = true;
+		if (tolower(move) == 'x') starting_move = true;
+		if (tolower(move) == 'y') starting_move = true;
+		if (tolower(move) == 'z') starting_move = true;
+
+		if (starting_move) cancel_transform = true;
 
 		// CLAMP PRECISION TO AVOID ARTIFACTS
 		if (current_transform.progress > 0.99) cancel_transform = true;
@@ -404,12 +422,16 @@ int main() {
 			cube_unit.rotation = rot * cube_unit.rotation;
 		}
 
+		// IF STARTING MOVE RESET TRANSFORM
+		if (starting_move) {
+			current_transform.affected = {};
+			current_transform.progress = 0.0f;
+			current_transform.direction = tolower(move) == move ? 1.0f : -1.0f;
+		}
+
 		// KEY EVENTS
-		if (key == 'u') {
-			current_transform.affected = {};
-			current_transform.progress = 0.0f;
+		if (tolower(move) == 'u') {
 			current_transform.axis = glm::vec3(0, -1, 0);
-			current_transform.direction = 1.0f;
 			for (int i = 0; i < 27; i++) {
 				CubeUnit& cube_unit = cube.units[i];
 				if (cube_unit.position.y >= 1.0) {
@@ -417,11 +439,8 @@ int main() {
 				}
 			}
 		}
-		if (key == 'd') {
-			current_transform.affected = {};
-			current_transform.progress = 0.0f;
+		if (tolower(move) == 'd') {
 			current_transform.axis = glm::vec3(0, 1, 0);
-			current_transform.direction = 1.0f;
 			for (int i = 0; i < 27; i++) {
 				CubeUnit& cube_unit = cube.units[i];
 				if (cube_unit.position.y <= -1.0) {
@@ -429,11 +448,8 @@ int main() {
 				}
 			}
 		}
-		if (key == 'r') {
-			current_transform.affected = {};
-			current_transform.progress = 0.0f;
+		if (tolower(move) == 'r') {
 			current_transform.axis = glm::vec3(-1, 0, 0);
-			current_transform.direction = 1.0f;
 			for (int i = 0; i < 27; i++) {
 				CubeUnit& cube_unit = cube.units[i];
 				if (cube_unit.position.x >= 1.0) {
@@ -441,11 +457,8 @@ int main() {
 				}
 			}
 		}
-		if (key == 'l') {
-			current_transform.affected = {};
-			current_transform.progress = 0.0f;
+		if (tolower(move) == 'l') {
 			current_transform.axis = glm::vec3(1, 0, 0);
-			current_transform.direction = 1.0f;
 			for (int i = 0; i < 27; i++) {
 				CubeUnit& cube_unit = cube.units[i];
 				if (cube_unit.position.x <= -1.0) {
@@ -453,11 +466,8 @@ int main() {
 				}
 			}
 		}
-		if (key == 'f') {
-			current_transform.affected = {};
-			current_transform.progress = 0.0f;
+		if (tolower(move) == 'f') {
 			current_transform.axis = glm::vec3(0, 0, -1);
-			current_transform.direction = 1.0f;
 			for (int i = 0; i < 27; i++) {
 				CubeUnit& cube_unit = cube.units[i];
 				if (cube_unit.position.z >= 1.0) {
@@ -465,11 +475,8 @@ int main() {
 				}
 			}
 		}
-		if (key == 'b') {
-			current_transform.affected = {};
-			current_transform.progress = 0.0f;
+		if (tolower(move) == 'b') {
 			current_transform.axis = glm::vec3(0, 0, 1);
-			current_transform.direction = 1.0f;
 			for (int i = 0; i < 27; i++) {
 				CubeUnit& cube_unit = cube.units[i];
 				if (cube_unit.position.z <= -1.0) {
@@ -477,133 +484,22 @@ int main() {
 				}
 			}
 		}
-		if (key == 'U') {
-			current_transform.affected = {};
-			current_transform.progress = 0.0f;
-			current_transform.axis = glm::vec3(0, -1, 0);
-			current_transform.direction = -1.0f;
-			for (int i = 0; i < 27; i++) {
-				CubeUnit& cube_unit = cube.units[i];
-				if (cube_unit.position.y >= 1.0) {
-					current_transform.affected.push_back(std::ref(cube_unit));
-				}
-			}
-		}
-		if (key == 'D') {
-			current_transform.affected = {};
-			current_transform.progress = 0.0f;
-			current_transform.axis = glm::vec3(0, 1, 0);
-			current_transform.direction = -1.0f;
-			for (int i = 0; i < 27; i++) {
-				CubeUnit& cube_unit = cube.units[i];
-				if (cube_unit.position.y <= -1.0) {
-					current_transform.affected.push_back(std::ref(cube_unit));
-				}
-			}
-		}
-		if (key == 'R') {
-			current_transform.affected = {};
-			current_transform.progress = 0.0f;
+		if (tolower(move) == 'x') {
 			current_transform.axis = glm::vec3(-1, 0, 0);
-			current_transform.direction = -1.0f;
-			for (int i = 0; i < 27; i++) {
-				CubeUnit& cube_unit = cube.units[i];
-				if (cube_unit.position.x >= 1.0) {
-					current_transform.affected.push_back(std::ref(cube_unit));
-				}
-			}
-		}
-		if (key == 'L') {
-			current_transform.affected = {};
-			current_transform.progress = 0.0f;
-			current_transform.axis = glm::vec3(1, 0, 0);
-			current_transform.direction = -1.0f;
-			for (int i = 0; i < 27; i++) {
-				CubeUnit& cube_unit = cube.units[i];
-				if (cube_unit.position.x <= -1.0) {
-					current_transform.affected.push_back(std::ref(cube_unit));
-				}
-			}
-		}
-		if (key == 'F') {
-			current_transform.affected = {};
-			current_transform.progress = 0.0f;
-			current_transform.axis = glm::vec3(0, 0, -1);
-			current_transform.direction = -1.0f;
-			for (int i = 0; i < 27; i++) {
-				CubeUnit& cube_unit = cube.units[i];
-				if (cube_unit.position.z >= 1.0) {
-					current_transform.affected.push_back(std::ref(cube_unit));
-				}
-			}
-		}
-		if (key == 'B') {
-			current_transform.affected = {};
-			current_transform.progress = 0.0f;
-			current_transform.axis = glm::vec3(0, 0, 1);
-			current_transform.direction = -1.0f;
-			for (int i = 0; i < 27; i++) {
-				CubeUnit& cube_unit = cube.units[i];
-				if (cube_unit.position.z <= -1.0) {
-					current_transform.affected.push_back(std::ref(cube_unit));
-				}
-			}
-		}
-		if (key == 'x') {
-			current_transform.affected = {};
-			current_transform.progress = 0.0f;
-			current_transform.axis = glm::vec3(-1, 0, 0);
-			current_transform.direction = 1.0f;
 			for (int i = 0; i < 27; i++) {
 				CubeUnit& cube_unit = cube.units[i];
 				current_transform.affected.push_back(std::ref(cube_unit));
 			}
 		}
-		if (key == 'y') {
-			current_transform.affected = {};
-			current_transform.progress = 0.0f;
+		if (tolower(move) == 'y') {
 			current_transform.axis = glm::vec3(0, -1, 0);
-			current_transform.direction = 1.0f;
 			for (int i = 0; i < 27; i++) {
 				CubeUnit& cube_unit = cube.units[i];
 				current_transform.affected.push_back(std::ref(cube_unit));
 			}
 		}
-		if (key == 'z') {
-			current_transform.affected = {};
-			current_transform.progress = 0.0f;
+		if (tolower(move) == 'z') {
 			current_transform.axis = glm::vec3(0, 0, -1);
-			current_transform.direction = 1.0f;
-			for (int i = 0; i < 27; i++) {
-				CubeUnit& cube_unit = cube.units[i];
-				current_transform.affected.push_back(std::ref(cube_unit));
-			}
-		}
-		if (key == 'X') {
-			current_transform.affected = {};
-			current_transform.progress = 0.0f;
-			current_transform.axis = glm::vec3(-1, 0, 0);
-			current_transform.direction = -1.0f;
-			for (int i = 0; i < 27; i++) {
-				CubeUnit& cube_unit = cube.units[i];
-				current_transform.affected.push_back(std::ref(cube_unit));
-			}
-		}
-		if (key == 'Y') {
-			current_transform.affected = {};
-			current_transform.progress = 0.0f;
-			current_transform.axis = glm::vec3(0, -1, 0);
-			current_transform.direction = -1.0f;
-			for (int i = 0; i < 27; i++) {
-				CubeUnit& cube_unit = cube.units[i];
-				current_transform.affected.push_back(std::ref(cube_unit));
-			}
-		}
-		if (key == 'Z') {
-			current_transform.affected = {};
-			current_transform.progress = 0.0f;
-			current_transform.axis = glm::vec3(0, 0, -1);
-			current_transform.direction = -1.0f;
 			for (int i = 0; i < 27; i++) {
 				CubeUnit& cube_unit = cube.units[i];
 				current_transform.affected.push_back(std::ref(cube_unit));
@@ -612,7 +508,7 @@ int main() {
 
 		// IF NEW TRANSFORM STARTED ADD CURRENT KEY TO MOVES
 		if (current_transform.progress == 0.0f) {
-			move_list.push_back(key);
+			move_list.push_back(move);
 		}
 
 		// CHECK FOR CANCELING MOVES
