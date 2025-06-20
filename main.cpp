@@ -331,8 +331,8 @@ int main() {
 		int height = screen.dimy();
 		double aspect = width / (double)height / 2.0;
 
-	// INITIALIZE ZBUFFER TO INFINITY
-	std::vector<std::vector<float>> zbuffer(height, std::vector<float>(width, INFINITY));
+		// INITIALIZE ZBUFFER TO INFINITY
+		std::vector<std::vector<float>> zbuffer(height, std::vector<float>(width, INFINITY));
 
 		char key = poll_keypress();
 
