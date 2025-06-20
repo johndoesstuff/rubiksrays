@@ -30,6 +30,9 @@ void set_raw_mode(bool enable) {
 void handle_exit(int) {
 	std::cout << "\033[?25h" << std::flush;
 	set_raw_mode(false);
+	// EXIT ALTERNATE SCREEN BUFFER
+	std::cout << "\033[?1049l";
+	std::cout.flush();
 	std::exit(0);
 }
 
@@ -282,6 +285,10 @@ Cube MakeCube() {
 }
 
 int main() {
+	// ENTER ALTERNATE SCREEN BUFFER
+	std::cout << "\033[?1049h";
+
+
 	// SETUP TERMINAL FOR VISUAL MODE AND GET USER INPUT
 	set_raw_mode(true);
 	static auto start_time = std::chrono::high_resolution_clock::now();
@@ -295,19 +302,6 @@ int main() {
 	const double target_framerate = 60.0;
 	const auto target_frame_duration = std::chrono::duration<double>(1.0 / target_framerate);
 
-	// INITIALIZE SCREEN
-	auto screen = ftxui::Screen::Create(
-		ftxui::Dimension::Full(),
-		ftxui::Dimension::Full()
-	);
-
-	int width = screen.dimx();
-	int height = screen.dimy();
-	double aspect = width / (double)height / 2.0;
-
-	// INITIALIZE ZBUFFER TO INFINITY
-	std::vector<std::vector<float>> zbuffer(height, std::vector<float>(width, INFINITY));
-	
 	// INITIALIZE CUBE
 	Cube cube = MakeCube();
 
@@ -322,8 +316,24 @@ int main() {
 	current_transform.progress = 1.0f;
 	std::vector<char> move_list = {};
 
+	// SHOW HELP BY DEFAULT
+	bool display_help = true;
+
 	// MAIN LOOP
 	while (true) {
+		// INITIALIZE SCREEN
+		auto screen = ftxui::Screen::Create(
+				ftxui::Dimension::Full(),
+				ftxui::Dimension::Full()
+				);
+
+		int width = screen.dimx();
+		int height = screen.dimy();
+		double aspect = width / (double)height / 2.0;
+
+	// INITIALIZE ZBUFFER TO INFINITY
+	std::vector<std::vector<float>> zbuffer(height, std::vector<float>(width, INFINITY));
+
 		char key = poll_keypress();
 
 		// CAMERA CONTROLS
@@ -331,6 +341,9 @@ int main() {
 		if (key == 'a') yaw_vel -= 0.05;
 		if (key == 'w') pitch_vel += 0.05;
 		if (key == 's') pitch_vel -= 0.05;
+
+		// TOGGLE HELP
+		if (key == 'h') display_help = !display_help;
 
 		// CONTROL MAPPING
 		char move = '\0';
@@ -362,7 +375,6 @@ int main() {
 
 		if (key == 'x') move = 'Z';
 		if (key == 'c') move = 'z';
-
 
 		// SPACE = RANDOM MOVE
 		if (key == ' ') {
@@ -596,19 +608,53 @@ int main() {
 
 		// DISPLAY FPS
 		std::string fps_text = "FPS: " + std::to_string(fps);
-		for (size_t i = 0; i < fps_text.size() && i < static_cast<size_t>(width); ++i) {
-			auto& pixel = screen.PixelAt(i, 0); // top-left
+		for (size_t i = 0; i < fps_text.size() && i < static_cast<size_t>(width - 4); ++i) {
+			auto& pixel = screen.PixelAt(i + 2, 1);
 			pixel.character = fps_text[i];
 			pixel.foreground_color = ftxui::Color::White;
 			pixel.bold = true;
 		}
 
 		// DISPLAY MOVE LIST
-		for (size_t i = 0; i < move_list.size() && i < static_cast<size_t>(width); ++i) {
-			auto& pixel = screen.PixelAt(i, height-1);
-			pixel.character = move_list[i - ((move_list.size() > width) ? (width - move_list.size()) : 0)];
+		for (size_t i = 0; i < move_list.size() && i < static_cast<size_t>(width - 4); ++i) {
+			auto& pixel = screen.PixelAt(i + 2, height-2);
+			pixel.character = move_list[i - ((move_list.size() > width - 4) ? (width - 4 - move_list.size()) : 0)];
 			pixel.foreground_color = ftxui::Color::White;
 			pixel.bold = true;
+		}
+
+		// DISPLAY HELP
+		if (display_help) {
+			int help_x_start = width - 15;
+			int y = 1;
+
+			auto write_line = [&](std::string line, int y_offset) {
+				for (size_t i = 0; i < line.size() && (help_x_start + i) < width; i++) {
+					auto& pixel = screen.PixelAt(help_x_start + i, y_offset);
+					pixel.character = line[i];
+					pixel.foreground_color = ftxui::Color::White;
+					pixel.bold = true;
+				}
+			};
+
+			// HELP TEXT
+			write_line(" Controls", y++);
+			write_line(" ----------", y++);
+			write_line(" w/s: pitch", y++);
+			write_line(" a/d: yaw", y++);
+			write_line(" i/o: U / U'", y++);
+			write_line(" p/;: R / R'", y++);
+			write_line(" u/j: L / L'", y++);
+			write_line(" k/l: F / F'", y++);
+			write_line(" ,/.: B / B'", y++);
+			write_line(" m/ : D / D'", y++);
+			write_line(" q/e: Y / Y'", y++);
+			write_line(" r/f: X / X'", y++);
+			write_line(" x/c: Z / Z'", y++);
+			write_line(" space: random", y++);
+			write_line(" z: undo", y++);
+			write_line(" h: toggle help", y++);
+			write_line(" ^C: quit", y++);
 		}
 
 		// DISABLE CURSOR AND FLUSH SCREEN
