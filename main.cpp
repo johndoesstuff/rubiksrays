@@ -571,6 +571,13 @@ int main() {
 			yaw = 0.99*yaw - 0.01*yaw_iso;
 		}
 
+		if (yaw > glm::half_pi<float>() * 3) {
+			yaw -= glm::two_pi<float>();
+		}
+		if (yaw < -glm::half_pi<float>() * 3) {
+			yaw += glm::two_pi<float>();
+		}
+
 		// PITCH CANNOT GO ABOVE OR BELOW 2PI
 		pitch = glm::clamp(pitch, -glm::half_pi<float>() + 0.01f, glm::half_pi<float>() - 0.01f);
 
