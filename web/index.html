@@ -1,75 +1,91 @@
 <!doctype html>
-<meta charset="utf-8">
-<title>RubiksRays</title>
-<link rel="icon" href="favicon/favicon.ico" sizes="any">
-<link rel="icon" type="image/png" sizes="32x32" href="favicon/favicon-32x32.png">
-<link rel="icon" type="image/png" sizes="16x16" href="favicon/favicon-16x16.png">
-<link rel="apple-touch-icon" sizes="180x180" href="favicon/apple-touch-icon.png">
-<link rel="manifest" href="favicon/site.webmanifest">
-<meta name="theme-color" content="#300a24">
-<style>
-html, body { margin: 0; height: 100%; background: #300a24; overflow: hidden; }
-canvas { display: block; width: 100vw; height: 100vh; }
-</style>
-<canvas id="c"></canvas>
-<script>
-	(async () => {
-		const FONT = '12px monospace';
-		const PALETTE = [null, null, '#cc0000', '#ef2929', '#3465a4', '#4e9a06', '#fce94f', '#d3d7cf'];
-
-		const nop = () => 0;
-		const { instance } = await WebAssembly.instantiateStreaming(fetch('rubiksrays.wasm'), {
-			wasi_snapshot_preview1: { proc_exit: nop, fd_close: nop, fd_write: nop, fd_seek: nop },
-		});
-		const wasm = instance.exports;
-		wasm._initialize();
-
-		const canvas = document.getElementById('c');
-		const ctx = canvas.getContext('2d', { alpha: false });
-		let cols = 0, rows = 0, cellW = 0, cellH = 0;
-
-		function resize() {
-			const dpr = window.devicePixelRatio || 1;
-			canvas.width = Math.floor(innerWidth * dpr);
-			canvas.height = Math.floor(innerHeight * dpr);
-			ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-			ctx.font = FONT;
-			ctx.textBaseline = 'top';
-			cellW = ctx.measureText('@').width;
-			cellH = cellW * 2; // 2:1 aspect ratio font
-			cols = Math.max(1, Math.floor(innerWidth / cellW));
-			rows = Math.max(1, Math.floor(innerHeight / cellH));
-			return [cols, rows];
+<head>
+	<meta charset="utf-8">
+	<title>RubiksRays</title>
+	<link rel="icon" href="favicon/favicon.ico" sizes="any">
+	<link rel="icon" type="image/png" sizes="32x32" href="favicon/favicon-32x32.png">
+	<link rel="icon" type="image/png" sizes="16x16" href="favicon/favicon-16x16.png">
+	<link rel="apple-touch-icon" sizes="180x180" href="favicon/apple-touch-icon.png">
+	<link rel="manifest" href="favicon/site.webmanifest">
+	<meta name="theme-color" content="#300a24">
+	<style>
+		html, body { margin: 0; height: 100%; background: #300a24; overflow: hidden; }
+		canvas { display: block; width: 100vw; height: 100vh; }
+		#source {
+			position: absolute;
+			bottom: 10px;
+			text-align: center;
+			width: 100%;
+			color: white;
+			font-family: Monospace;
 		}
+		a {
+			color: aqua;
+		}
+	</style>
+</head>
+<body>
+	<canvas id="c"></canvas>
+	<div id="source">View my <a href="https://github.com/johndoesstuff/rubiksrays">source</a>.. please....</div>
+	<script>
+		(async () => {
+			const FONT = '12px monospace';
+			const PALETTE = [null, null, '#cc0000', '#ef2929', '#3465a4', '#4e9a06', '#fce94f', '#d3d7cf'];
 
-		wasm.rr_init(...resize(), (Math.random() * 2 ** 32) >>> 0);
-		addEventListener('resize', () => wasm.rr_resize(...resize()));
-		addEventListener('keydown', e => {
-			if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
-				wasm.rr_key(e.key.charCodeAt(0));
-				e.preventDefault();
+			const nop = () => 0;
+			const { instance } = await WebAssembly.instantiateStreaming(fetch('rubiksrays.wasm'), {
+				wasi_snapshot_preview1: { proc_exit: nop, fd_close: nop, fd_write: nop, fd_seek: nop },
+			});
+			const wasm = instance.exports;
+			wasm._initialize();
+
+			const canvas = document.getElementById('c');
+			const ctx = canvas.getContext('2d', { alpha: false });
+			let cols = 0, rows = 0, cellW = 0, cellH = 0;
+
+			function resize() {
+				const dpr = window.devicePixelRatio || 1;
+				canvas.width = Math.floor(innerWidth * dpr);
+				canvas.height = Math.floor(innerHeight * dpr);
+				ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+				ctx.font = FONT;
+				ctx.textBaseline = 'top';
+				cellW = ctx.measureText('@').width;
+				cellH = cellW * 2; // 2:1 aspect ratio font
+				cols = Math.max(1, Math.floor(innerWidth / cellW));
+				rows = Math.max(1, Math.floor(innerHeight / cellH));
+				return [cols, rows];
 			}
-		});
 
-		function draw(t) {
-			wasm.rr_frame(t / 1000);
-			const px = new Uint8Array(wasm.memory.buffer, wasm.rr_buffer(), cols * rows * 3);
-
-			ctx.fillStyle = '#300a24';
-			ctx.fillRect(0, 0, innerWidth, innerHeight);
-			let color = -1, bold = false;
-			for (let y = 0, i = 0; y < rows; y++) {
-				for (let x = 0; x < cols; x++, i += 3) {
-					const ch = px[i];
-					const col = PALETTE[px[i + 1]];
-					if (ch === 32 || !col) continue;
-					if (px[i + 1] !== color) { color = px[i + 1]; ctx.fillStyle = col; }
-					if (!!px[i + 2] !== bold) ctx.font = (bold = !!px[i + 2]) ? 'bold ' + FONT : FONT;
-					ctx.fillText(String.fromCharCode(ch), x * cellW, y * cellH);
+			wasm.rr_init(...resize(), (Math.random() * 2 ** 32) >>> 0);
+			addEventListener('resize', () => wasm.rr_resize(...resize()));
+			addEventListener('keydown', e => {
+				if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
+					wasm.rr_key(e.key.charCodeAt(0));
+					e.preventDefault();
 				}
+			});
+
+			function draw(t) {
+				wasm.rr_frame(t / 1000);
+				const px = new Uint8Array(wasm.memory.buffer, wasm.rr_buffer(), cols * rows * 3);
+
+				ctx.fillStyle = '#300a24';
+				ctx.fillRect(0, 0, innerWidth, innerHeight);
+				let color = -1, bold = false;
+				for (let y = 0, i = 0; y < rows; y++) {
+					for (let x = 0; x < cols; x++, i += 3) {
+						const ch = px[i];
+						const col = PALETTE[px[i + 1]];
+						if (ch === 32 || !col) continue;
+						if (px[i + 1] !== color) { color = px[i + 1]; ctx.fillStyle = col; }
+						if (!!px[i + 2] !== bold) ctx.font = (bold = !!px[i + 2]) ? 'bold ' + FONT : FONT;
+						ctx.fillText(String.fromCharCode(ch), x * cellW, y * cellH);
+					}
+				}
+				requestAnimationFrame(draw);
 			}
 			requestAnimationFrame(draw);
-		}
-		requestAnimationFrame(draw);
-	})();
-</script>
+		})();
+	</script>
+</body>
