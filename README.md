@@ -1,67 +1,55 @@
 # RubiksRays
 
-A fully animated 3d Rubiks Cube in your terminal. Written in C++ with [FTXUI](https://github.com/ArthurSonzogni/FTXUI) and [GLM](https://github.com/g-truc/glm).
+Animated 3d Rubiks Cube in your terminal... or on a fake terminal in your browser if that's your thing. Written in C++ with [FTXUI](https://github.com/ArthurSonzogni/FTXUI) and [GLM](https://github.com/g-truc/glm).
 
 ![RubiksRays Demo](RubiksRays.gif)
 
----
+### [Try Me!](https://johndoesstuff.github.io/rubiksrays/)
 
 ## Features
 
-- Move history display
-- Real-time 3d rendering using scanline triangle rasterization
-- Keybinds for all standard Rubiks cube moves with animated transitions
+- You can see your moves :P
+- It is 3d
+- The keybinds make sense
 - Move history compression (e.g. `LLL` -> `l`, `UUu` -> `U`)
-- Togglable onscreen help
 - Randomized scrambles and infinite undo history
-
----
 
 ## Controls
 
 #### Camera
-w/s Tilt up/down
+`w`/`s` Tilt up/down
 
-a/d Rotate left/right
+`a`/`d` Rotate left/right
 
 #### Face Moves
-i/o U/U'
+`i`/`o` U/U'
 
-p/; R/R'
+`p`/`;` R/R'
 
-u/j L/L'
+`u`/`j` L/L'
 
-k/l F/F'
+`k`/`l` F/F'
 
-,/. B/B'
+`,`/`.` B/B'
 
-m// D/D'
+`m`/`/` D/D'
 
 #### Cube Rotations
-r/f X/X'
+`r`/`f` X/X'
 
-q/e Y/Y'
+`q`/`e` Y/Y'
 
-x/c Z/Z'
+`x`/`c` Z/Z'
 
-
-##### Web (WebAssembly)
-
-The same `main.cpp` compiles to a ~50 KB standalone wasm with no JS glue; `web/index.html` draws the character buffer on a canvas. Live at https://johndoesstuff.github.io/rubiksrays/ (built and deployed by `.github/workflows/pages.yml` on every push to `main`, so the wasm is never committed).
-
-```bash
-./web/build.sh                      # needs emcc; set GLM=/path/to/glm if headers aren't in /usr/include/glm
-python3 -m http.server -d web       # then open http://localhost:8000
-```
 
 ## Misc
-space Random Move
+`space` Random Move
 
-z Undo Last Move
+`z` Undo Last Move
 
-h Toggle Help
+`h` Toggle Help
 
-Ctrl+c Exit
+`^C` Exit
 
 ---
 
@@ -86,7 +74,7 @@ cmake --build build
 
 ### Web (WebAssembly)
 
-The same `main.cpp` compiles to a ~50 KB standalone wasm with no JS glue; `web/index.html` draws the character buffer on a canvas.
+Run me on the web! (Idk why you would though)
 
 ```bash
 ./web/build.sh                      # needs emcc; set GLM=/path/to/glm if headers aren't in /usr/include/glm
@@ -95,4 +83,4 @@ python3 -m http.server -d web       # then open http://localhost:8000
 
 ## Misc
 
-Made by me as an introduction to programming in C++ (I usually prefer C). I'll likely make more programs in C++ in the future as I was pleasantly surprised with how convenient a lot of features were.
+Made by me as an introduction to programming in C++ with web deployment assisted by Claude. I'll likely make more programs in C++ in the future as I was pleasantly surprised with how convenient a lot of features were.
