@@ -45,7 +45,16 @@ q/e Y/Y'
 x/c Z/Z'
 
 
-#### Misc
+##### Web (WebAssembly)
+
+The same `main.cpp` compiles to a ~50 KB standalone wasm with no JS glue; `web/index.html` draws the character buffer on a canvas. Live at https://johndoesstuff.github.io/rubiksrays/ (built and deployed by `.github/workflows/pages.yml` on every push to `main`, so the wasm is never committed).
+
+```bash
+./web/build.sh                      # needs emcc; set GLM=/path/to/glm if headers aren't in /usr/include/glm
+python3 -m http.server -d web       # then open http://localhost:8000
+```
+
+## Misc
 space Random Move
 
 z Undo Last Move
@@ -73,6 +82,15 @@ cd RubiksRays
 cmake -B build
 cmake --build build
 ./build/RubiksRays
+```
+
+### Web (WebAssembly)
+
+The same `main.cpp` compiles to a ~50 KB standalone wasm with no JS glue; `web/index.html` draws the character buffer on a canvas.
+
+```bash
+./web/build.sh                      # needs emcc; set GLM=/path/to/glm if headers aren't in /usr/include/glm
+python3 -m http.server -d web       # then open http://localhost:8000
 ```
 
 ## Misc

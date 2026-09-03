@@ -4,14 +4,20 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include "CubeUnit.hpp"
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#else
 #include <termios.h>
 #include <poll.h>
+#include <unistd.h>
+#endif
 #include <chrono>
 #include <thread>
 #include "Transform.hpp"
 #include <string>
 #include <random>
 
+#ifndef __EMSCRIPTEN__
 // COLLECT USER INPUT
 void set_raw_mode(bool enable) {
 	static struct termios oldt;
@@ -47,6 +53,17 @@ char poll_keypress() {
 	}
 	return '\0';
 }
+#else
+// KEYS ARE PUSHED IN FROM JS AND DRAINED ONE PER FRAME
+static char g_key_queue[32];
+static int g_key_head = 0, g_key_tail = 0;
+char poll_keypress() {
+	if (g_key_head == g_key_tail) return '\0';
+	char c = g_key_queue[g_key_head];
+	g_key_head = (g_key_head + 1) % 32;
+	return c;
+}
+#endif
 
 struct Vec2i {
 	int x, y;
@@ -284,23 +301,12 @@ Cube MakeCube() {
 	return cube;
 }
 
-int main() {
-	// ENTER ALTERNATE SCREEN BUFFER
-	std::cout << "\033[?1049h";
 
-
-	// SETUP TERMINAL FOR VISUAL MODE AND GET USER INPUT
-	set_raw_mode(true);
-	static auto start_time = std::chrono::high_resolution_clock::now();
-	std::signal(SIGINT, handle_exit);
-	std::signal(SIGTERM, handle_exit);
-
+// ALL PER-RUN STATE; frame() IS ONE ITERATION OF THE MAIN LOOP
+struct App {
 	// INITIALIZE CLOCK (USEFUL FOR FPS AND DELTATIME TRANSITIONS)
-	using Clock = std::chrono::high_resolution_clock;
-	auto last_time = Clock::now();
+	double last_time = 0.0;
 	int fps = 0;
-	const double target_framerate = 60.0;
-	const auto target_frame_duration = std::chrono::duration<double>(1.0 / target_framerate);
 
 	// INITIALIZE CUBE
 	Cube cube = MakeCube();
@@ -313,14 +319,17 @@ int main() {
 
 	// INITIALIZE TRANSFORM AND MOVE LIST
 	Transform current_transform;
-	current_transform.progress = 1.0f;
 	std::vector<char> move_list = {};
 
 	// SHOW HELP BY DEFAULT
 	bool display_help = true;
 
-	// MAIN LOOP
-	while (true) {
+	std::mt19937 gen;
+
+	App(unsigned seed) : gen(seed) { current_transform.progress = 1.0f; }
+
+	// now = SECONDS FROM ANY FIXED ORIGIN
+	void frame(double now) {
 		// INITIALIZE SCREEN
 		auto screen = ftxui::Screen::Create(
 				ftxui::Dimension::Full(),
@@ -379,8 +388,6 @@ int main() {
 		// SPACE = RANDOM MOVE
 		if (key == ' ') {
 			std::string moves = "udrlfbUDRLFB";
-			std::random_device rd;
-			std::mt19937 gen(rd());
 			std::uniform_int_distribution<> dis(0, moves.size() - 1);
 			
 			move = moves[dis(gen)];
@@ -664,26 +671,78 @@ int main() {
 			write_line(" ^C: quit", y++);
 		}
 
+#ifndef __EMSCRIPTEN__
 		// DISABLE CURSOR AND FLUSH SCREEN
 		std::cout << "\033[?25l";
 		std::cout << "\033[H";
 		std::cout << screen.ToString();
 		std::cout.flush();
-
-		// PREPARE TIME FOR NEXT FRAME CALCULATIONS
-		auto current_time = Clock::now();
-		std::chrono::duration<double> delta = current_time - last_time;
-
-		// CAP FRAMERATE TO 60FPS
-		if (delta < target_frame_duration) {
-			std::this_thread::sleep_for(target_frame_duration - delta);
-		}
-		current_time = Clock::now();
-		delta = current_time - last_time;
+#endif
 
 		// UPDATE FPS
-		fps = static_cast<int>(1.0 / delta.count());
-		last_time = current_time;
+		double delta = now - last_time;
+		fps = delta > 0.0 ? static_cast<int>(1.0 / delta) : 0;
+		last_time = now;
+	}
+};
+
+#ifdef __EMSCRIPTEN__
+
+static App* g_app = nullptr;
+
+extern "C" {
+
+EMSCRIPTEN_KEEPALIVE void rr_init(int width, int height, unsigned seed) {
+	ftxui::g_width = width;
+	ftxui::g_height = height;
+	delete g_app;
+	g_app = new App(seed);
+}
+
+EMSCRIPTEN_KEEPALIVE void rr_resize(int width, int height) {
+	ftxui::g_width = width;
+	ftxui::g_height = height;
+}
+
+EMSCRIPTEN_KEEPALIVE void rr_key(int c) {
+	int next = (g_key_tail + 1) % 32;
+	if (next == g_key_head) return;
+	g_key_queue[g_key_tail] = (char)c;
+	g_key_tail = next;
+}
+
+EMSCRIPTEN_KEEPALIVE void rr_frame(double now) { g_app->frame(now); }
+
+EMSCRIPTEN_KEEPALIVE const void* rr_buffer() { return ftxui::g_pixels.data(); }
+
+}
+
+#else
+
+int main() {
+	// ENTER ALTERNATE SCREEN BUFFER
+	std::cout << "\033[?1049h";
+
+	// SETUP TERMINAL FOR VISUAL MODE AND GET USER INPUT
+	set_raw_mode(true);
+	std::signal(SIGINT, handle_exit);
+	std::signal(SIGTERM, handle_exit);
+
+	using Clock = std::chrono::high_resolution_clock;
+	const auto start_time = Clock::now();
+	const double target_framerate = 60.0;
+	const auto target_frame_duration = std::chrono::duration<double>(1.0 / target_framerate);
+
+	App app(std::random_device{}());
+
+	// MAIN LOOP
+	while (true) {
+		auto frame_start = Clock::now();
+		app.frame(std::chrono::duration<double>(frame_start - start_time).count());
+
+		// CAP FRAMERATE TO 60FPS
+		std::this_thread::sleep_until(frame_start + target_frame_duration);
 	}
 }
 
+#endif
